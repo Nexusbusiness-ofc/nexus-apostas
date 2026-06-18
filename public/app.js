@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     knownBets: {}, // betId -> status (to detect new wins)
     activeScreen: 'sportsbook',
     openScorerMatchId: null,
+    openLineupMatchId: null,
     isLocalMode: false // True if server is offline or running on file:// protocol
   };
 
@@ -768,6 +769,36 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  async function fetchMatchLineups(eventId) {
+    try {
+      const json = await fetchJsonWithCorsFallback(`https://site.web.api.espn.com/apis/site/v2/sports/soccer/fifa.world/summary?event=${eventId}&_=${Date.now()}`);
+      const lineups = { home: [], away: [], available: false };
+
+      (json.rosters || []).forEach(teamRoster => {
+        const side = teamRoster.homeAway === 'away' ? 'away' : 'home';
+        const starters = (teamRoster.roster || [])
+          .filter(item => item.starter)
+          .sort((a, b) => Number(a.formationPlace || 99) - Number(b.formationPlace || 99))
+          .map(item => ({
+            id: String(item.athlete?.id || ''),
+            name: item.athlete?.displayName || item.athlete?.fullName || '',
+            shortName: getPlayerDisplayName(item.athlete?.displayName || item.athlete?.fullName || ''),
+            position: item.position?.abbreviation || item.position?.displayName || '',
+            number: item.jersey || item.athlete?.jersey || ''
+          }))
+          .filter(player => player.name);
+
+        lineups[side] = starters;
+      });
+
+      lineups.available = lineups.home.length > 0 || lineups.away.length > 0;
+      return lineups;
+    } catch (error) {
+      console.warn(`Falha ao obter onze inicial ESPN do jogo ${eventId}:`, error.message);
+      return { home: [], away: [], available: false };
+    }
+  }
+
   function extractScorerName(text) {
     const match = text.match(/Goal!\s.*?\.\s([^(.]+?)\s\(/i);
     return match ? match[1].trim() : '';
@@ -1002,6 +1033,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.addEventListener('click', (event) => {
+      const lineupButton = event.target.closest('.lineup-toggle-btn');
+      if (lineupButton) {
+        event.preventDefault();
+        event.stopPropagation();
+        toggleLineupPanel(lineupButton.dataset.lineupMatch);
+        return;
+      }
+
       const scorerButton = event.target.closest('.scorer-btn');
       if (scorerButton) {
         event.preventDefault();
@@ -1023,6 +1062,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const matchId = matchCard.dataset.scorerToggle;
       state.openScorerMatchId = state.openScorerMatchId === matchId ? null : matchId;
+      if (state.openScorerMatchId !== matchId) {
+        state.openLineupMatchId = null;
+      } else if (state.openLineupMatchId && state.openLineupMatchId !== matchId) {
+        state.openLineupMatchId = null;
+      }
       renderMatches();
     });
 
@@ -1460,6 +1504,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     return `
       <div class="scorer-market">
+        <div class="match-hidden-actions">
+          <button class="lineup-toggle-btn" type="button" data-lineup-match="${escapeHtml(match.id)}">
+            <i data-lucide="list-start"></i>
+            <span>Onze inicial</span>
+          </button>
+        </div>
+        ${renderLineupPanel(match)}
         <div class="market-title">
           <i data-lucide="target"></i>
           <span>Marcador em qualquer momento</span>
@@ -1478,6 +1529,41 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
           </div>
         </div>
+      </div>
+    `;
+  }
+
+  function renderLineupPanel(match) {
+    if (state.openLineupMatchId !== match.id) return '';
+
+    const lineups = match.lineups || { home: [], away: [], available: false };
+    if (!lineups.available) {
+      return `
+        <div class="lineup-panel">
+          <div class="lineup-empty">Onze inicial ainda nao divulgado pela ESPN.</div>
+        </div>
+      `;
+    }
+
+    const renderTeamLineup = (teamName, players) => `
+      <div class="lineup-team">
+        <span class="lineup-team-title">${teamName}</span>
+        <div class="lineup-list">
+          ${players.slice(0, 11).map((player, index) => `
+            <div class="lineup-player">
+              <span class="lineup-index">${index + 1}</span>
+              <span class="lineup-name">${player.shortName || player.name}</span>
+              <span class="lineup-position">${player.position || '-'}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+
+    return `
+      <div class="lineup-panel">
+        ${renderTeamLineup(match.home_team, lineups.home)}
+        ${renderTeamLineup(match.away_team, lineups.away)}
       </div>
     `;
   }
@@ -1532,6 +1618,33 @@ document.addEventListener('DOMContentLoaded', () => {
       marketLabel: `Marcador: ${displayName}`
     });
   };
+
+  async function toggleLineupPanel(matchId) {
+    if (state.openLineupMatchId === matchId) {
+      state.openLineupMatchId = null;
+      renderMatches();
+      return;
+    }
+
+    const match = state.matches.find(item => item.id === matchId);
+    if (!match) return;
+
+    state.openScorerMatchId = matchId;
+    state.openLineupMatchId = matchId;
+
+    if (!match.lineups && match.espn_event_id) {
+      showToast('A obter onze inicial...', 'info');
+      match.lineups = await fetchMatchLineups(match.espn_event_id);
+      const storedMatches = JSON.parse(localStorage.getItem('nexus_matches') || '[]');
+      const storedMatch = storedMatches.find(item => item.id === match.id);
+      if (storedMatch) {
+        storedMatch.lineups = match.lineups;
+        localStorage.setItem('nexus_matches', JSON.stringify(storedMatches));
+      }
+    }
+
+    renderMatches();
+  }
 
   window.clearSelection = function() {
     state.activeSelection = null;

@@ -898,6 +898,97 @@ a:hover {
   width: 100%;
 }
 
+.match-hidden-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.lineup-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-main);
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.lineup-toggle-btn:hover {
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
+}
+
+.lineup-toggle-btn i {
+  width: 14px;
+  height: 14px;
+}
+
+.lineup-panel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.lineup-empty {
+  grid-column: 1 / -1;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.lineup-team-title {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--accent-gold);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.lineup-list {
+  display: grid;
+  gap: 5px;
+}
+
+.lineup-player {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  min-height: 28px;
+  color: var(--text-main);
+  font-size: 0.76rem;
+}
+
+.lineup-index {
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+}
+
+.lineup-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+}
+
+.lineup-position {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+}
+
 .market-title {
   display: flex;
   align-items: center;
