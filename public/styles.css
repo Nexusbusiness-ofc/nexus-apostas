@@ -2426,6 +2426,12 @@ a:hover {
 }
 
 @media (max-width: 680px) {
+  *,
+  *::before,
+  *::after {
+    min-width: 0;
+  }
+
   html,
   body,
   .app-container,
@@ -2439,9 +2445,30 @@ a:hover {
     --header-height: 58px;
   }
 
+  body {
+    position: relative;
+  }
+
+  img,
+  svg,
+  table {
+    max-width: 100%;
+  }
+
+  .app-container {
+    height: 100dvh;
+  }
+
+  .main-layout {
+    width: 100%;
+    height: calc(100dvh - var(--header-height));
+  }
+
   .main-header {
+    width: 100%;
     min-width: 0;
-    padding: 0 10px;
+    gap: 8px;
+    padding: 0 8px;
   }
 
   .header-left,
@@ -2450,19 +2477,70 @@ a:hover {
     min-width: 0;
   }
 
+  .header-left {
+    flex: 1 1 auto;
+  }
+
+  .header-right {
+    flex: 0 1 auto;
+    justify-content: flex-end;
+  }
+
+  .header-icon-btn {
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+  }
+
+  .logo-area {
+    gap: 5px;
+    min-width: 0;
+  }
+
   .betclic-logo-box,
   .logo-text-sub {
     font-size: 1rem;
-    padding: 4px 8px;
+    padding: 3px 6px;
+    letter-spacing: 0;
+    margin-left: 0;
   }
 
-  .user-coins-widget {
+  .user-coins-display {
+    flex: 0 1 auto;
     min-width: 0;
-    padding: 5px 7px;
+    gap: 5px;
+    padding: 4px 6px;
+  }
+
+  .coin-icon-wrapper {
+    width: 28px;
+    height: 28px;
+    flex: 0 0 28px;
+  }
+
+  .coin-label,
+  .coin-plus-btn,
+  .logout-btn {
+    display: none;
+  }
+
+  .coin-amount-details {
+    min-width: 0;
   }
 
   .coin-value {
     font-size: 0.78rem;
+    max-width: 58px;
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .user-profile-widget {
+    flex: 0 0 auto;
+    gap: 0;
+    padding: 3px;
   }
 
   .header-avatar,
@@ -2474,6 +2552,9 @@ a:hover {
   .content-area {
     padding: 10px;
     overflow-x: hidden;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
   }
 
   .section-container,
@@ -2481,20 +2562,56 @@ a:hover {
   .competition-group,
   .competition-group-matches,
   .matches-grid,
+  .matches-list,
   .match-card,
-  .list-match-row {
+  .list-match-row,
+  .standings-grid,
+  .store-grid,
+  .stats-summary-grid,
+  .bets-history-list,
+  .profile-layout-container,
+  .sync-panel-layout {
+    width: 100%;
     max-width: 100%;
     min-width: 0;
   }
 
+  .sync-panel-layout,
+  .standings-grid,
+  .store-grid,
+  .stats-summary-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .table-card {
+    padding: 12px;
+    overflow-x: auto;
+  }
+
+  .standings-table {
+    table-layout: fixed;
+    font-size: 0.68rem;
+  }
+
+  .standings-table th,
+  .standings-table td {
+    padding: 7px 4px;
+  }
+
   .promo-banner {
     min-height: 120px;
-    padding: 16px;
+    padding: 14px;
     margin-bottom: 16px;
   }
 
+  .promo-gfx,
+  .promo-actions {
+    display: none;
+  }
+
   .promo-content h1 {
-    font-size: 1.25rem;
+    font-size: 1.08rem;
     line-height: 1.15;
   }
 
@@ -2517,7 +2634,7 @@ a:hover {
   }
 
   .matches-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 12px;
   }
 
@@ -2581,20 +2698,43 @@ a:hover {
   }
 
   .competition-group-header {
-    padding: 10px 12px;
+    padding: 9px 10px;
+  }
+
+  .comp-header-title {
+    font-size: 0.72rem;
+    line-height: 1.25;
   }
 
   .competition-group-matches .list-match-row {
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr);
     padding: 10px 8px;
   }
 
+  .match-teams-column {
+    gap: 8px;
+  }
+
+  .list-team-item {
+    gap: 7px;
+  }
+
+  .versus-lbl {
+    width: 22px;
+    height: 22px;
+    flex: 0 0 22px;
+  }
+
   .odds-box {
+    width: 100%;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 6px;
   }
 
   .odd-btn {
     min-height: 42px;
-    padding: 7px 4px;
+    padding: 7px 3px;
   }
 
   .odd-label {
@@ -2606,6 +2746,11 @@ a:hover {
   }
 
   .bet-slip-panel {
+    left: 6px;
+    right: 6px;
+    bottom: 0;
+    width: auto;
+    max-width: calc(100vw - 12px);
     max-height: 78vh;
   }
 
@@ -2634,30 +2779,61 @@ a:hover {
     padding: 12px;
     padding-bottom: max(16px, env(safe-area-inset-bottom));
   }
+
+  .toast-container {
+    right: 8px;
+    bottom: 8px;
+    left: 8px;
+  }
+
+  .toast {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    padding: 12px;
+  }
 }
 
 @media (max-width: 390px) {
   .content-area {
-    padding: 8px;
+    padding: 6px;
   }
 
   .main-header {
-    padding: 0 8px;
+    padding: 0 6px;
+    gap: 6px;
   }
 
   .betclic-logo-box,
   .logo-text-sub {
-    font-size: 0.9rem;
-    padding: 3px 6px;
+    font-size: 0.78rem;
+    padding: 3px 5px;
   }
 
   .coin-value {
-    font-size: 0.72rem;
+    max-width: 48px;
+    font-size: 0.68rem;
+  }
+
+  .coin-icon-wrapper {
+    width: 24px;
+    height: 24px;
+    flex-basis: 24px;
+  }
+
+  .user-profile-widget {
+    padding: 3px;
+  }
+
+  .header-avatar,
+  .user-avatar {
+    width: 26px;
+    height: 26px;
   }
 
   .match-card,
   .competition-group-matches .list-match-row {
-    padding: 8px;
+    padding: 7px;
   }
 
   .team-name {
@@ -2665,6 +2841,14 @@ a:hover {
   }
 
   .odd-btn {
-    min-height: 40px;
+    min-height: 38px;
+  }
+
+  .odd-label {
+    font-size: 0.62rem;
+  }
+
+  .odd-val {
+    font-size: 0.8rem;
   }
 }
