@@ -162,12 +162,24 @@ document.addEventListener('DOMContentLoaded', () => {
   async function init() {
     initIcons();
 
+    // 1. Detect environment synchronously
+    const isGitHubPages = window.location.hostname.endsWith('github.io');
+    const isFileProtocol = window.location.protocol === 'file:';
+    
+    if (isFileProtocol || isGitHubPages) {
+      state.isLocalMode = true;
+    } else {
+      state.isLocalMode = false;
+    }
+
+    // Bind event listeners synchronously first to avoid race conditions
+    setupEventListeners();
+
     // Handle hash callback if present (Discord Client-side OAuth)
     await handleDiscordCallbackHash();
 
-    // 1. Detect environment
-    if (window.location.protocol === 'file:') {
-      state.isLocalMode = true;
+    // Initialize environment mode
+    if (state.isLocalMode) {
       initOfflineMode();
     } else {
       // Test server connection
@@ -175,7 +187,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const res = await fetch('/api/user/me');
         if (!res.ok) throw new Error('Não responde');
         
-        state.isLocalMode = false;
         checkAuthStatus();
         
         // Start polling online matches
@@ -186,9 +197,6 @@ document.addEventListener('DOMContentLoaded', () => {
         initOfflineMode();
       }
     }
-
-    // Bind event listeners
-    setupEventListeners();
 
     // Initialize mousemove parallax for login overlay
     const loginOverlay = document.getElementById('login-overlay');
