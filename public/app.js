@@ -271,7 +271,7 @@ document.addEventListener('DOMContentLoaded', () => {
       localStorage.setItem('nexus_user', 'null');
     }
     if (!localStorage.getItem('nexus_matches')) {
-      localStorage.setItem('nexus_matches', JSON.stringify(defaultMatches));
+      localStorage.setItem('nexus_matches', JSON.stringify([]));
     }
     if (!localStorage.getItem('nexus_bets')) {
       localStorage.setItem('nexus_bets', JSON.stringify([]));
@@ -316,7 +316,7 @@ document.addEventListener('DOMContentLoaded', () => {
       console.warn('Falha ao obter partidas reais do ESPN no arranque offline:', e.message);
     });
 
-    // Poll real-world ESPN matches every 60 seconds
+    // Poll real-world ESPN matches frequently so live goals/status follow the real feed.
     setInterval(async () => {
       try {
         const realMatches = await fetchMatchesOffline();
@@ -330,10 +330,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (e) {
         console.warn('Falha ao atualizar partidas reais do ESPN offline:', e.message);
       }
-    }, 60000);
-
-    // Run client-side Live Simulator
-    startLocalSimulator();
+    }, 15000);
   }
 
   // --- CLIENT-SIDE DISCORD OAUTH (IMPLICIT GRANT) HELPERS ---
@@ -515,7 +512,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- CLIENT-SIDE ESPN SCOREBOARD FETCHING (CORS PROXY) HELPERS ---
   async function fetchMatchesOffline() {
-    const url = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard';
+    const url = getWorldCupScoreboardUrl();
+    
+    // Attempt 0: direct ESPN request. Some browsers allow it; if not, proxies below are used.
+    try {
+      const response = await fetch(url, { cache: 'no-store' });
+      if (response.ok) {
+        const json = await response.json();
+        return processESPNScoreboard(json);
+      }
+    } catch (e) {
+      console.warn('Pedido direto ESPN falhou, a tentar proxies CORS...');
+    }
     
     // Attempt 1: corsproxy.io
     try {
@@ -540,6 +548,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     throw new Error('Todos os proxies CORS falharam.');
+  }
+
+  function getWorldCupScoreboardUrl() {
+    const today = new Date();
+    const start = new Date(today);
+    start.setUTCDate(today.getUTCDate() - 2);
+    const end = new Date(today);
+    end.setUTCDate(today.getUTCDate() + 45);
+
+    const formatDate = (date) => {
+      const year = date.getUTCFullYear();
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(date.getUTCDate()).padStart(2, '0');
+      return `${year}${month}${day}`;
+    };
+
+    const range = `${formatDate(start)}-${formatDate(end)}`;
+    return `https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=${range}&limit=500&_=${Date.now()}`;
   }
 
   function processESPNScoreboard(json) {
@@ -573,7 +599,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const scoreHome = parseInt(homeCompetitor.score) || 0;
       const scoreAway = parseInt(awayCompetitor.score) || 0;
-      const minute = event.status.clock ? Math.floor(event.status.clock / 60) : (status === 'live' ? 45 : 0);
+      const minute = getESPNMatchMinute(event.status, status);
 
       const existing = localMatches.find(m => m.id === matchId);
       let baseOdds = existing ? existing.baseOdds || existing.odds : null;
@@ -601,6 +627,7 @@ document.addEventListener('DOMContentLoaded', () => {
         home_logo: homeLogo,
         away_logo: awayLogo,
         status: status,
+        status_detail: event.status?.type?.shortDetail || event.status?.type?.detail || '',
         minute: minute,
         score_home: scoreHome,
         score_away: scoreAway,
@@ -619,17 +646,26 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    // Also preserve mock live matches if any are currently running (to not break offline test rotation)
-    localMatches.forEach(m => {
-      if (m.id.startsWith('local_live_') || m.id.startsWith('wc_')) {
-        if (!updatedMatches.some(um => um.id === m.id)) {
-          updatedMatches.push(m);
-        }
-      }
-    });
-
     localStorage.setItem('nexus_matches', JSON.stringify(updatedMatches));
     return updatedMatches;
+  }
+
+  function getESPNMatchMinute(status, mappedStatus) {
+    if (mappedStatus === 'scheduled') return 0;
+    if (mappedStatus === 'finished') return 90;
+
+    const displayClock = status?.displayClock || '';
+    const displayMinute = parseInt(displayClock.replace(/[^\d]/g, ''), 10);
+    if (!Number.isNaN(displayMinute) && displayMinute > 0) {
+      return Math.min(120, displayMinute);
+    }
+
+    const clock = Number(status?.clock);
+    if (Number.isFinite(clock) && clock > 0) {
+      return Math.min(120, Math.floor(clock / 60));
+    }
+
+    return 45;
   }
 
   function calculateLiveOddsLocal(scoreHome, scoreAway, minute, baseOdds) {
