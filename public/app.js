@@ -1104,8 +1104,46 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
 
-    // Logout
-    document.getElementById('logout-btn').addEventListener('click', logout);
+    // Profile menu / logout
+    const profileWidget = document.getElementById('profile-widget');
+    const profileMenu = document.getElementById('profile-menu');
+    const logoutBtn = document.getElementById('logout-btn');
+    const profileLogoutBtn = document.getElementById('profile-logout-btn');
+
+    const closeProfileMenu = () => {
+      if (profileMenu) profileMenu.classList.add('hidden');
+    };
+
+    if (profileWidget && profileMenu) {
+      profileWidget.addEventListener('click', (event) => {
+        if (event.target.closest('#logout-btn, #profile-logout-btn')) return;
+        event.preventDefault();
+        event.stopPropagation();
+        profileMenu.classList.toggle('hidden');
+      });
+
+      document.addEventListener('click', (event) => {
+        if (!profileWidget.contains(event.target)) closeProfileMenu();
+      });
+    }
+
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        closeProfileMenu();
+        logout();
+      });
+    }
+
+    if (profileLogoutBtn) {
+      profileLogoutBtn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        closeProfileMenu();
+        logout();
+      });
+    }
 
     const mobileSlipBackdrop = document.getElementById('mobile-slip-backdrop');
     if (mobileSlipBackdrop) {
