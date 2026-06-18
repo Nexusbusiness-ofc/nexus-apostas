@@ -3,6 +3,9 @@
    ========================================================================== */
 
 document.addEventListener('DOMContentLoaded', () => {
+  const DISCORD_CLIENT_ID = '1504934174878994482';
+  const DISCORD_STATE_KEY = 'nexus_discord_oauth_state';
+
   // --- APPLICATION STATE ---
   let state = {
     user: null,
@@ -336,9 +339,24 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- CLIENT-SIDE DISCORD OAUTH (IMPLICIT GRANT) HELPERS ---
   async function handleDiscordCallbackHash() {
     const hash = window.location.hash;
+    if (hash && hash.includes('error=')) {
+      window.history.replaceState(null, null, getStaticRedirectUri());
+      showToast('O Discord recusou o login. Tenta novamente.', 'error');
+      return;
+    }
+
     if (hash && hash.includes('access_token=')) {
       const params = new URLSearchParams(hash.substring(1)); // strip '#'
       const accessToken = params.get('access_token');
+      const expectedState = localStorage.getItem(DISCORD_STATE_KEY);
+      const returnedState = params.get('state');
+      localStorage.removeItem(DISCORD_STATE_KEY);
+
+      if (!expectedState || returnedState !== expectedState) {
+        window.history.replaceState(null, null, getStaticRedirectUri());
+        showToast('Nao foi possivel validar o retorno do Discord. Tenta novamente.', 'error');
+        return;
+      }
       
       if (accessToken) {
         try {
@@ -392,7 +410,7 @@ document.addEventListener('DOMContentLoaded', () => {
           state.user = localUser;
           
           // Clear hash in url
-          window.history.replaceState(null, null, window.location.pathname);
+          window.history.replaceState(null, null, getStaticRedirectUri());
           showToast('Login com Discord efetuado com sucesso!', 'success');
         } catch (err) {
           console.error('Erro ao processar callback do Discord:', err);
@@ -402,10 +420,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function getStaticRedirectUri() {
+    const pathname = window.location.pathname.replace(/\/index\.html$/i, '/');
+    return `${window.location.origin}${pathname}`;
+  }
+
+  function createOAuthState() {
+    const randomValues = new Uint32Array(4);
+    window.crypto?.getRandomValues?.(randomValues);
+    const randomPart = Array.from(randomValues, value => value.toString(16)).join('');
+    return `${Date.now().toString(36)}-${randomPart || Math.random().toString(36).slice(2)}`;
+  }
+
   function showDiscordClientIdModal() {
     if (document.getElementById('discord-config-modal')) return;
 
-    const currentOrigin = window.location.origin + window.location.pathname;
+    const currentOrigin = getStaticRedirectUri();
     
     const modal = document.createElement('div');
     modal.id = 'discord-config-modal';
@@ -476,8 +506,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function redirectToDiscordOAuth(clientId) {
-    const currentOrigin = window.location.origin + window.location.pathname;
-    const discordAuthUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(currentOrigin)}&response_type=token&scope=identify`;
+    const currentOrigin = getStaticRedirectUri();
+    const stateValue = createOAuthState();
+    localStorage.setItem(DISCORD_STATE_KEY, stateValue);
+    const discordAuthUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(currentOrigin)}&response_type=token&scope=identify&state=${encodeURIComponent(stateValue)}&prompt=consent`;
     window.location.href = discordAuthUrl;
   }
 
@@ -611,8 +643,8 @@ document.addEventListener('DOMContentLoaded', () => {
       odds.draw = parseFloat(Math.min(15.00, 2.2 + (1 / (timeRemainingFactor + 0.01)) * goalDiff * 1.5).toFixed(2));
     } else if (goalDiff < 0) {
       odds.win_away = parseFloat(Math.max(1.02, 1.1 + (timeRemainingFactor * 0.5) / Math.abs(goalDiff)).toFixed(2));
-      odds.win_home = parseFloat(Math.min(50.00, 3.0 + (1 / (timeRemainingFactor + 0.01)) * Math.abs(goalDiff * 2.5).toFixed(2));
-      odds.draw = parseFloat(Math.min(15.00, 2.2 + (1 / (timeRemainingFactor + 0.01)) * Math.abs(goalDiff * 1.5).toFixed(2));
+      odds.win_home = parseFloat(Math.min(50.00, 3.0 + (1 / (timeRemainingFactor + 0.01)) * Math.abs(goalDiff) * 2.5).toFixed(2));
+      odds.draw = parseFloat(Math.min(15.00, 2.2 + (1 / (timeRemainingFactor + 0.01)) * Math.abs(goalDiff) * 1.5).toFixed(2));
     } else {
       odds.win_home = parseFloat((1.8 + timeRemainingFactor * 1.2).toFixed(2));
       odds.win_away = parseFloat((2.5 + timeRemainingFactor * 1.5).toFixed(2));
@@ -743,7 +775,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('login-discord-link').addEventListener('click', (e) => {
       e.preventDefault();
       if (state.isLocalMode) {
-        const clientId = localStorage.getItem('discord_client_id');
+        const clientId = localStorage.getItem('discord_client_id') || DISCORD_CLIENT_ID;
         if (clientId) {
           redirectToDiscordOAuth(clientId);
         } else {
