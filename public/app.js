@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     activeSelection: null, // { matchId, betType, selectionName, odd, homeTeam, awayTeam }
     knownBets: {}, // betId -> status (to detect new wins)
     activeScreen: 'sportsbook',
+    openScorerMatchId: null,
     isLocalMode: false // True if server is offline or running on file:// protocol
   };
 
@@ -728,7 +729,7 @@ document.addEventListener('DOMContentLoaded', () => {
         .map(player => ({
           id: String(player.id),
           name: player.displayName || player.fullName,
-          shortName: player.shortName || player.displayName || player.fullName,
+          shortName: getPlayerDisplayName(player.displayName || player.fullName || player.shortName),
           position: player.position?.abbreviation || player.position?.name || '',
           odd: getScorerOdd(player.position?.abbreviation || player.position?.name || '')
         }))
@@ -801,6 +802,12 @@ document.addEventListener('DOMContentLoaded', () => {
     return 8.0;
   }
 
+  function getPlayerDisplayName(name) {
+    const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return '';
+    return parts.length > 1 ? parts[parts.length - 1] : parts[0];
+  }
+
   function normalizeName(name) {
     return String(name || '')
       .normalize('NFD')
@@ -818,6 +825,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function jsString(value) {
     return JSON.stringify(String(value || ''));
+  }
+
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
   }
 
   function calculateLiveOddsLocal(scoreHome, scoreAway, minute, baseOdds) {
@@ -984,6 +999,31 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         window.location.href = '/auth/discord';
       }
+    });
+
+    document.addEventListener('click', (event) => {
+      const scorerButton = event.target.closest('.scorer-btn');
+      if (scorerButton) {
+        event.preventDefault();
+        event.stopPropagation();
+        selectScorerBet(
+          scorerButton.dataset.matchId,
+          scorerButton.dataset.scorerId,
+          scorerButton.dataset.playerName,
+          scorerButton.dataset.playerLabel || scorerButton.dataset.playerName,
+          scorerButton.dataset.teamName,
+          scorerButton.dataset.teamId,
+          Number(scorerButton.dataset.odd)
+        );
+        return;
+      }
+
+      const matchCard = event.target.closest('[data-scorer-toggle]');
+      if (!matchCard || event.target.closest('button, a, input, select, textarea')) return;
+
+      const matchId = matchCard.dataset.scorerToggle;
+      state.openScorerMatchId = state.openScorerMatchId === matchId ? null : matchId;
+      renderMatches();
     });
 
     // Daily Claim Button
@@ -1255,7 +1295,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const isAwaySelected = state.activeSelection && state.activeSelection.matchId === m.id && state.activeSelection.betType === '2';
 
         return `
-          <div class="match-card">
+          <div class="match-card ${state.openScorerMatchId === m.id ? 'scorers-open' : ''}" data-scorer-toggle="${m.id}">
             <div class="match-meta-row">
               <span class="competition-name">${m.competition}</span>
               <span class="match-time-live">
@@ -1338,7 +1378,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const formattedDateTime = formatMatchTime(m.date, m.time);
 
           return `
-            <div class="list-match-row">
+            <div class="list-match-row ${state.openScorerMatchId === m.id ? 'scorers-open' : ''}" data-scorer-toggle="${m.id}">
               <div class="match-info-column">
                 <span class="time-val">${formattedDateTime}</span>
               </div>
@@ -1405,7 +1445,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
       return `
         <button class="scorer-btn ${isSelected ? 'active' : ''}" type="button"
-          onclick="selectScorerBet(${jsString(match.id)}, ${jsString(player.id)}, ${jsString(player.name)}, ${jsString(teamName)}, ${jsString(teamId)}, ${Number(player.odd).toFixed(2)})">
+          data-match-id="${escapeHtml(match.id)}"
+          data-scorer-id="${escapeHtml(player.id)}"
+          data-player-name="${escapeHtml(player.name)}"
+          data-player-label="${escapeHtml(player.shortName || player.name)}"
+          data-team-name="${escapeHtml(teamName)}"
+          data-team-id="${escapeHtml(teamId)}"
+          data-odd="${Number(player.odd).toFixed(2)}">
           <span class="scorer-name">${player.shortName || player.name}</span>
           <span class="scorer-odd">${Number(player.odd).toFixed(2)}</span>
         </button>
@@ -1475,13 +1521,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  window.selectScorerBet = function(matchId, scorerId, playerName, teamName, teamId, odd) {
-    selectBet(matchId, 'scorer', playerName, Number(odd), {
+  window.selectScorerBet = function(matchId, scorerId, playerName, playerLabel, teamName, teamId, odd) {
+    const displayName = playerLabel || getPlayerDisplayName(playerName);
+    selectBet(matchId, 'scorer', displayName, Number(odd), {
       scorerId,
       scorerName: playerName,
+      scorerLabel: displayName,
       scorerTeam: teamName,
       scorerTeamId: teamId,
-      marketLabel: `Marcador: ${playerName}`
+      marketLabel: `Marcador: ${displayName}`
     });
   };
 
